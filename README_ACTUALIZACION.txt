@@ -1,0 +1,1 @@
+Actualización v9:\n- Pronóstico a 3 meses con detalle por línea, cliente, hospital homologado, medicamento homologado presentación y laboratorio homologado.\n- Corrección automática SON-0028.\n- Homologación ZURICH / ZURICH PHARMA.\n- Excel maestro con hojas Base, Resumen, Solo_Enlazados_Empaque, Catalogo_Empaque, Ambiguedades, Pronostico_Detalle y Pronostico_Resumen.\n

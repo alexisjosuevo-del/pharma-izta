@@ -1,0 +1,319 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Homologación y Fusión de Mezclas | Dashboard</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="styles.css" />
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/xlsx/dist/xlsx.full.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/exceljs/dist/exceljs.min.js"></script>
+
+  <script defer src="app.js"></script>
+</head>
+<body>
+  <div id="loader" class="loader-overlay">
+    <div class="loader-content">
+      <div class="spinner"></div>
+      <h2>Optimizando Base de Datos</h2>
+      <p id="loaderStatus">Procesando registros homologados y aplicando lógica de demanda...</p>
+      <div class="progress-wrap">
+        <div id="progressBar" class="progress-bar"></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="app-shell">
+    <aside class="sidebar">
+      <div class="brand-card">
+        <div style="display:flex; align-items:center; gap:16px; margin-bottom:12px;">
+          <div style="width:50px; height:50px; border-radius:12px; border:2px solid var(--accent-soft); padding:4px; background:rgba(255,255,255,0.05); display:flex; align-items:center; justify-content:center;">
+            <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="var(--primary)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.3 1.5 4.05 3 5.5l7 7Z"/></svg>
+          </div>
+          <div class="brand-kicker">Herramienta actualizable</div>
+        </div>
+        <h1>Homologación y fusión de mezclas</h1>
+        <p>Integra nutrición y oncología, conserva histórico y aplica el mismo proceso a nuevas cargas.</p>
+      </div>
+
+      <div class="side-section side-collapsible collapsed" id="controlPanel">
+        <button id="toggleControlPanel" class="collapsible-trigger" type="button" aria-expanded="false" aria-controls="controlPanelBody">
+          <span>
+            <strong>Centro de cargas y descargas</strong>
+            <small>Ábrelo solo cuando quieras subir archivos o descargar el Excel.</small>
+          </span>
+          <span class="collapsible-icon">▾</span>
+        </button>
+        <div id="controlPanelBody" class="collapsible-body" hidden>
+          <h2>Carga de archivos</h2>
+          <label class="upload-box">
+            <span>Subir nuevos archivos mensuales</span>
+            <small>Acepta Excel de nutrición u oncología. Se agregan al histórico sin borrar la base inicial.</small>
+            <input id="monthlyFiles" type="file" accept=".xlsx,.xls" multiple />
+          </label>
+
+          <label class="upload-box subtle">
+            <span>Subir Excel de piezas por empaque</span>
+            <small>Activa el cálculo de piezas y mejora el pronóstico por volumen.</small>
+            <input id="packagingFile" type="file" accept=".xlsx,.xls,.csv" />
+          </label>
+
+          <label class="upload-box subtle">
+            <span>Subir Lista de Precios (PRECIOS 1304261)</span>
+            <small>Usa los precios para calcular montos mensuales en el forecast.</small>
+            <input id="priceFile" type="file" accept=".xlsx,.xls,.xlsb" />
+          </label>
+
+          <div class="button-row">
+            <button id="btnProcess" class="primary">Procesar cargas</button>
+            <button id="btnResetUploads" class="ghost">Limpiar cargas nuevas</button>
+          </div>
+
+          <div class="button-row">
+            <button id="btnDownloadTemplate" class="ghost">Descargar plantilla empaque</button>
+            <button id="btnDownloadAll" class="ghost">Descargar base homologada</button>
+            <button id="btnExportCsv" class="ghost">Descargar base (CSV)</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="side-section">
+        <h2>Estado</h2>
+        <div id="statusBox" class="status-box"></div>
+      </div>
+    </aside>
+
+    <main class="main">
+      <section class="hero">
+        <div>
+          <div class="eyebrow">Base de datos</div>
+          <h2>Cargue sus archivos para comenzar</h2>
+          <p>La lógica sigue tu guía: homologación de hospital, medicamento oncológico, laboratorio, presentación, filtros de consigna y estructura lista para demanda y pronóstico.</p>
+        </div>
+        <div class="hero-note">
+          <strong>Nota:</strong>
+          <span id="piecesNote">Esperando archivo de piezas por empaque para cálculo exacto de piezas.</span>
+        </div>
+      </section>
+
+      <section class="cards-grid" id="summaryCards"></section>
+
+      <section class="panel">
+        <div class="panel-head">
+          <div>
+            <div class="eyebrow">Filtros</div>
+            <h3>Exploración de la base homologada</h3>
+          </div>
+          <div class="button-row">
+            <button id="btnExportFilteredCsv" class="ghost">CSV filtrado</button>
+            <button id="btnExportFilteredXlsx" class="ghost">Excel filtrado</button>
+          </div>
+        </div>
+
+        <div class="filters-grid">
+          <label><span>Línea</span><select id="filterLinea"></select></label>
+          <label><span>Mes</span><select id="filterMes"></select></label>
+          <label><span>Hospital</span><select id="filterHospital"></select></label>
+          <label><span>Medicamento</span><select id="filterMedicamento"></select></label>
+          <label><span>Laboratorio</span><select id="filterLaboratorio"></select></label>
+          <label><span>Cliente</span><select id="filterCliente"></select></label>
+          <label><span>Consigna</span><select id="filterConsigna"></select></label>
+          <label><span>Marca</span><select id="filterMarca"></select></label>
+          <label><span>Tipo</span><select id="filterTipo"></select></label>
+          <label><span>Métrica General</span><select id="mainMetric">
+            <option value="monto_total">Monto ($)</option>
+            <option value="piezas">Volumen (Pzas)</option>
+          </select></label>
+          <label><span>Buscar texto</span><input id="filterSearch" type="text" placeholder="Hospital, medicamento, cliente..." /></label>
+        </div>
+        <div class="panel-foot" style="margin-top: 16px; border-top: 1px solid var(--line); padding-top: 16px;">
+          <button id="btnResetFilters" class="ghost">Reiniciar filtros</button>
+        </div>
+      </section>
+
+      <section class="charts-grid">
+        <div class="panel">
+          <div class="panel-head">
+            <div>
+              <div class="eyebrow">Gráfico</div>
+              <h3>Monto por mes y línea</h3>
+            </div>
+          </div>
+          <canvas id="monthlyChart"></canvas>
+        </div>
+
+        <div class="panel">
+          <div class="panel-head">
+            <div>
+              <div class="eyebrow">Distribución</div>
+              <h3>Market Share por Laboratorio</h3>
+            </div>
+          </div>
+          <div style="position:relative; height:360px;">
+            <canvas id="marketShareChart"></canvas>
+          </div>
+        </div>
+      </section>
+
+      <section class="charts-grid">
+        <div class="panel">
+          <div class="panel-head">
+            <div>
+              <div class="eyebrow">Gráfico</div>
+              <h3>Top 10 laboratorios por monto</h3>
+            </div>
+          </div>
+          <canvas id="labChart"></canvas>
+        </div>
+
+        <div class="panel">
+          <div class="panel-head">
+            <div>
+              <div class="eyebrow">Gráfico</div>
+              <h3>Top 10 hospitales por monto</h3>
+            </div>
+          </div>
+          <canvas id="hospChart"></canvas>
+        </div>
+      </section>
+
+      <section class="charts-grid">
+        <div class="panel">
+          <div class="panel-head">
+            <div>
+              <div class="eyebrow">Gráfico</div>
+              <h3>Piezas por Línea, Medicamento y Presentación (Mensual)</h3>
+            </div>
+          </div>
+          <div style="position:relative; height:360px;">
+            <canvas id="medPresChart"></canvas>
+          </div>
+        </div>
+
+        <div class="panel">
+          <div class="panel-head">
+            <div>
+              <div class="eyebrow">Gráfico</div>
+              <h3>Piezas por Hosp, Med y Presentación (Mensual)</h3>
+            </div>
+          </div>
+          <div style="position:relative; height:360px;">
+            <canvas id="hospMedPresChart"></canvas>
+          </div>
+        </div>
+      </section>
+      
+      <section class="panel" id="growthInsightsPanel" style="display:none;">
+        <div class="panel-head">
+          <div>
+            <div class="eyebrow">Insights</div>
+            <h3>Proyección de Crecimiento</h3>
+            <p class="muted">Top 5 grupos con mayor incremento porcentual proyectado frente al mes anterior.</p>
+          </div>
+        </div>
+        <div class="cards-grid" id="growthCards" style="grid-template-columns: repeat(5, 1fr);">
+          <!-- Dynamic cards -->
+        </div>
+      </section>
+
+      <section class="panel">
+        <div class="panel-head">
+          <div>
+            <div class="eyebrow">Pronóstico</div>
+            <h3>Demanda estimada próximos 3 meses</h3>
+            <p class="muted">Con histórico corto usa promedio móvil ponderado. La exportación genera pronóstico a 3 meses en montos y piezas, total y sin consigna.</p>
+          </div>
+        </div>
+        <div class="forecast-toolbar">
+          <label><span>Métrica</span><select id="forecastMetric">
+            <option value="monto_total">Monto</option>
+            <option value="piezas">Piezas</option>
+          </select></label>
+          <label><span>Nivel</span><select id="forecastLevel">
+            <option value="overall">General</option>
+            <option value="producto_cliente_laboratorio">Producto + cliente + laboratorio</option>
+            <option value="detalle_demanda">Línea + cliente + punto de venta + medicamento presentación + fabricante</option>
+          </select></label>
+        </div>
+        <div id="forecastInfo" class="status-box"></div>
+        <div id="forecastHighlights" class="forecast-highlights"></div>
+        <div class="charts-grid forecast-grid">
+          <div class="panel inner-panel">
+            <div class="panel-head">
+              <div>
+                <div class="eyebrow">Resumen</div>
+                <h3>Pronóstico visible por mes</h3>
+              </div>
+            </div>
+            <div class="table-wrap small">
+              <table id="forecastSummaryTable">
+                <thead></thead>
+                <tbody></tbody>
+              </table>
+            </div>
+          </div>
+          <div class="panel inner-panel">
+            <div class="panel-head">
+              <div>
+                <div class="eyebrow">Modelos</div>
+                <h3>Comparativo de modelos usados</h3>
+              </div>
+            </div>
+            <div class="table-wrap small">
+              <table id="forecastModelsTable">
+                <thead></thead>
+                <tbody></tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+        <div class="charts-grid forecast-grid">
+          <div class="panel inner-panel">
+            <div class="panel-head">
+              <div>
+                <div class="eyebrow">Gráfico</div>
+                <h3>Pronóstico próximos 3 meses</h3>
+              </div>
+            </div>
+            <div class="forecast-chart-wrap"><canvas id="forecastChart"></canvas></div>
+          </div>
+          <div class="panel inner-panel">
+            <div class="panel-head">
+              <div>
+                <div class="eyebrow">Gráfico</div>
+                <h3>Histórico vs pronóstico</h3>
+              </div>
+            </div>
+            <div class="forecast-chart-wrap"><canvas id="forecastHistoryChart"></canvas></div>
+          </div>
+        </div>
+        <div class="table-wrap small">
+          <table id="forecastTable">
+            <thead></thead>
+            <tbody></tbody>
+          </table>
+        </div>
+      </section>
+
+      <section class="panel">
+        <div class="panel-head">
+          <div>
+            <div class="eyebrow">Detalle</div>
+            <h3>Base homologada</h3>
+          </div>
+          <div class="muted" id="tableCount"></div>
+        </div>
+        <div class="table-wrap">
+          <table id="dataTable">
+            <thead></thead>
+            <tbody></tbody>
+          </table>
+        </div>
+      </section>
+    </main>
+  </div>
+</body>
+</html>
